@@ -1,0 +1,18 @@
+[project]
+name = "ComfyUI-RunPythonCode"
+description = "Run arbitrary Python code to save you the hassle of connecting dozens of nodes for simple stuff."
+version = "0.0.1"
+license = {file = "LICENSE"}
+dependencies = [
+    "torch",
+    "numpy", 
+    "pillow" # for very useful included image type transformation utils (pil2tensor, ...)
+]
+
+[project.urls]
+Repository = "https://github.com/GreenLandisaLie/ComfyUI-RunPythonCode"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "GreenLandisaLie"
+DisplayName = "ComfyUI-RunPythonCode"
