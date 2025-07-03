@@ -6,7 +6,27 @@ import re
 import json
 
 
-
+CLASS_WARNING_STRING = """
+# >>>>>> WARNING <<<<<<
+# 
+# You have not changed the class name of 'SilverRunPythonCode'.
+# This means bad actors can make you run malicious code by infiltrating this node into a workflow that you might download and run without checking if it contains this node with malicious code in it.
+# 
+# To solve this security flaw you need to do the following:
+# 
+# - Create a ~10 length random string with (a-Z,0-9) characters (ex: f8Rca4Cx)
+# - Add the random string as suffix to the class name in the following lines in  \custom_nodes\ComfyUI-RunPythonCode\ nodes.py:
+#     - class SilverRunPythonCode:   (line 385)
+#     - "SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 800)
+#     - "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 810)
+#     Ex:
+#     - class SilverRunPythonCodef8Rca4Cx:
+#     - "SILVER.SilverRunPythonCodef8Rca4Cx": SilverRunPythonCodef8Rca4Cx,
+#     - "SILVER.SilverRunPythonCodef8Rca4Cx": "[Silver] Run/Execute Python Code",
+# 
+# With this, the security of this node is no longer a concern when downloading and running shared workflows - unless the bad actor somehow guesses your suffix correctly.
+# Avoid ever sharing an output with metadata/workflow with someone else if it contains your run python node in it because that will reveal its class name.\n\n\n
+"""
 
 
 # --- Global Registries ---
@@ -19,7 +39,6 @@ TOP_MODULE_IMPORTS = {}
 TOP_MODULE_IMPORT_STRING = ""
 EXTRA_MODULE_IMPORT_STRING = ""
 SHARED_GLOBALS = {}
-
 
 
 def public_func(func):
@@ -62,7 +81,6 @@ def public_obj(name, obj):
 NODE_FILE = public_obj("NODE_FILE", os.path.abspath(__file__)) # leaving this just as an example on how to decorate variables from within the script
 
 
-
 import os.path
 import math
 import random
@@ -87,8 +105,6 @@ from comfy.comfy_types import IO, ComfyNodeABC, InputTypeDict, FileLocator
 import folder_paths
 
 
-# List of packages to check. Each item is a tuple: (actual_module_name, desired_alias)
-# If no alias is desired, you can use (actual_module_name, actual_module_name)
 _packages_to_check = [
     ("cv2", "cv2"),
     ("diffusers", "diffusers"),
@@ -289,14 +305,12 @@ def get_top_level_imports(script_lines):
 
 
 
-
 script_lines = []
 with open(NODE_FILE, 'r', encoding='utf-8') as f:
     script_lines = f.readlines()
 
 TOP_MODULE_IMPORTS = get_top_level_imports(script_lines)
 TOP_MODULE_IMPORT_STRING = "\n".join([f"# {key}" for key in TOP_MODULE_IMPORTS])
-
 
 
 class AnyType(str):
@@ -327,13 +341,12 @@ def loadPil(path):
 
 
 
-
-
 class SilverAnyBridge:
     @classmethod
     def INPUT_TYPES(cls):
         return {
             "optional": {
+                "any0": (any, ),
                 "any1": (any, ),
                 "any2": (any, ),
                 "any3": (any, ),
@@ -341,13 +354,12 @@ class SilverAnyBridge:
                 "any5": (any, ),
                 "any6": (any, ),
                 "any7": (any, ),
-                "any8": (any, ),
                 "sort_by_None": ("BOOLEAN", { "default": False, "tooltip": "When True: None inputs will be outputed last."}),
             },
         }
 
     RETURN_TYPES = (any, any, any, any, any, any, any, any, )
-    RETURN_NAMES = ("any1", "any2", "any3", "any4", "any5", "any6", "any7", "any8", )
+    RETURN_NAMES = ("any0", "any1", "any2", "any3", "any4", "any5", "any6", "any7", )
     FUNCTION = "main"
     CATEGORY = "silver"
     DESCRIPTION = """
@@ -358,15 +370,15 @@ IMPORTANT:
    When 'sort_by_None' is True -> None inputs will be added after non-None inputs.
 """
     
-    def main(self, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, any8=None, sort_by_None=False):
+    def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, sort_by_None=False):
         
         if sort_by_None:
-            l = [e for e in [any1, any2, any3, any4, any5, any6, any7, any8] if e is not None]
+            l = [e for e in [any0, any1, any2, any3, any4, any5, any6, any7] if e is not None]
             while len(l) < 8:
                 l.append(None)
             return (l[0], l[1], l[2], l[3], l[4], l[5], l[6], l[7], )
         
-        return (any1, any2, any3, any4, any5, any6, any7, any8, )
+        return (any0, any1, any2, any3, any4, any5, any6, any7, )
 
 
 
@@ -376,29 +388,25 @@ class SilverRunPythonCode:
     executes the code against a copy of the list, and outputs the modified list.
     This node allows for dynamic python code execution within ComfyUI workflows.
     """
-    def __init__(self):
+    def __init__(s):
         pass
 
     @classmethod
     def INPUT_TYPES(s):
-        """
-        Defines the input types for the node.
-
-        - list_input: Expects any type of input, but is intended for lists.
-        - python_code: A multiline string where the user can type Python code.
-                       A default example is provided to guide the user.
-        """
         PUBLIC_FUNCTION_DISPLAY_STRING = "\n\n# These are the natively supported functions:\n\n" + "".join(_PUBLIC_FUNCTION_DISPLAY_STRINGS) if len(_PUBLIC_FUNCTION_DISPLAY_STRINGS) > 0 else ""
         PUBLIC_OBJECT_DISPLAY_STRING = "\n\n# These are the natively supported objects (you can only access their initial value):\n\n" + "".join(_PUBLIC_OBJECT_DISPLAY_STRINGS) if len(_PUBLIC_OBJECT_DISPLAY_STRINGS) > 0 else ""
+        CLASS_WARNING_STR = CLASS_WARNING_STRING if s.__name__ == "SilverRunPythonCode" else ""
         return {
             "optional": {
-                "list_input": (any, {"default": []}),
-                "shared_locals": (any, {"default": {}}), # Made optional to allow node to be used standalone
+                "list_input": ("LIST", {"default": []}),
+                "shared_locals": ("DICT", {"default": {}}), # Made optional to allow node to be used standalone
                 "python_code": (
                     "STRING",
                     {
                         "multiline": True,
                         "default": (
+                            CLASS_WARNING_STR +
+                        
                             "# TIP: copy all of this into a big note node and leave it next to this one for reference.\n" +
                             "# These are the natively added imports by this node:\n\n" +
                             
@@ -438,12 +446,15 @@ class SilverRunPythonCode:
             }
         }
 
-    RETURN_TYPES = (any, any,)
+    RETURN_TYPES = ("LIST", "DICT",)
     RETURN_NAMES = ("list_input", "shared_locals",)
 
     FUNCTION = "execute"
 
     CATEGORY = "silver" # Categorize your node for better organization
+    
+    
+    DESCRIPTION = CLASS_WARNING_STRING if __name__ == "SilverRunPythonCode" else "Use [Silver] List Append to import inputs and [Silver] List Splitter or [Silver] List Select/Extract By Index to extract outputs from 'list_input'."
 
     def execute(self, python_code, list_input=[], shared_locals={}):
         """
@@ -462,6 +473,10 @@ class SilverRunPythonCode:
         if shared_locals is None:
             shared_locals = {}
             
+        if self.__class__.__name__ == "SilverRunPythonCode":  # spam the user until they fix the security flaw of this node and prevent code execution
+            print(CLASS_WARNING_STRING + "\n[SilverRunPythonCode] 'python_code' execution will be skipped! Returning original inputs...")
+            return (list_input, shared_locals)
+            
         # Create a deep copy of the input list.
         # This is crucial for two reasons:
         # 1. Prevents accidental modification of the original object connected from another node,
@@ -474,11 +489,11 @@ class SilverRunPythonCode:
             # In general, this is a robust way to handle various types.
             current_list_data = copy.deepcopy(list_input)
         except TypeError as e:
-            print(f"ComfyUI SilverRunPythonCode Warning: Could not deep copy input type {type(list_input)}. Proceeding with direct reference. Error: {e}")
+            print(f"[SilverRunPythonCode] Warning: Could not deep copy input type {type(list_input)}. Proceeding with direct reference. Error: {e}")
             current_list_data = list_input
         except Exception as e:
-            print(f"ComfyUI SilverRunPythonCode Error during deep copy: {e}. Returning original input.")
-            return (list_input, {})
+            print(f"[SilverRunPythonCode] Error during deep copy: {e}. Returning original input.")
+            return (list_input, shared_locals)
 
 
         # Define the execution environment for the user's code.
@@ -525,9 +540,9 @@ class SilverRunPythonCode:
                         for imported_module_name, imported_module in imported_data.items():
                             if imported_module_name not in _EXEC_GLOBALS:
                                 _EXEC_GLOBALS[imported_module_name] = imported_module
-                                print(f"Successfully imported {imported_module_name} via SilverRunPythonCode node.")
+                                print(f"[SilverRunPythonCode] Successfully imported: {imported_module_name}")
             except Exception as e:
-                print(f"ComfyUI SilverRunPythonCode Execution Error: {e}\n{traceback.format_exc()}")
+                print(f"[SilverRunPythonCode] Execution Error: {e}\n{traceback.format_exc()}")
         
         
         exec_globals.update(_EXEC_GLOBALS)
@@ -564,7 +579,7 @@ class SilverRunPythonCode:
 
         except Exception as e:
             # Catch any exceptions that occur during code execution.
-            error_message = f"ComfyUI SilverRunPythonCode Execution Error: {e}\n{traceback.format_exc()}"
+            error_message = f"[SilverRunPythonCode] Execution Error: {e}\n{traceback.format_exc()}"
             print(error_message) # Print the error to the ComfyUI console/log
             # In case of an error, return the original, unmodified list_input.
             # This prevents the workflow from crashing and ensures a graceful failure.
@@ -625,15 +640,15 @@ class SilverListSelectExtractByIndex:
             return (item,) # Return as a tuple as ComfyUI expects.
         except IndexError:
             # This error occurs if the index is out of bounds for the list/object.
-            print(f"ComfyUI ListIndexer Error: Index {index} is out of range for the input. Input length might be too small or index is negative.")
+            print(f"[SilverListSelectExtractByIndex] Error: Index {index} is out of range for the input. Input length might be too small or index is negative.")
             return (None,) # Return None or a meaningful default value
         except TypeError:
             # This error occurs if list_any is not an indexable type (e.g., an integer, a float, or a dictionary without proper key access).
-            print(f"ComfyUI ListIndexer Error: Input 'list_any' is not an indexable type (e.g., not a list, tuple, or string). Type received: {type(list_any)}")
+            print(f"[SilverListSelectExtractByIndex] Error: Input 'list_any' is not an indexable type (e.g., not a list, tuple, or string). Type received: {type(list_any)}")
             return (None,) # Return None
         except Exception as e:
             # Catch any other unexpected errors.
-            print(f"ComfyUI ListIndexer Error: An unexpected error occurred: {e}")
+            print(f"[SilverListSelectExtractByIndex] Error: An unexpected error occurred: {e}")
             return (None,) # Return None
 
 
@@ -643,6 +658,7 @@ class SilverListAppend:
     def INPUT_TYPES(s):
         return {
             "optional": {
+                "any0": (any, ),
                 "any1": (any, ),
                 "any2": (any, ),
                 "any3": (any, ),
@@ -650,8 +666,6 @@ class SilverListAppend:
                 "any5": (any, ),
                 "any6": (any, ),
                 "any7": (any, ),
-                "any8": (any, ),
-                "allow_none_type": ("BOOLEAN", { "default": True, "tooltip": "Leaving this True is useful to preserve the order even if some inputs are None."}),
             },
         }
 
@@ -661,13 +675,31 @@ class SilverListAppend:
     FUNCTION = "main"
     
     CATEGORY = "silver"
-    DESCRIPTION = "Creates a list with elements of any type in the given order."
+    DESCRIPTION = "Creates a list with elements of any type in the given order. Ignores None type inputs."
 
-    def main(self, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, any8=None, allow_none_type=False):
-        
-        l = [e for e in [any1, any2, any3, any4, any5, any6, any7, any8] if (e is not None and not allow_none_type) or allow_none_type]
-        
-        return (l,)
+    def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None):
+        return ([e for e in [any0, any1, any2, any3, any4, any5, any6, any7] if e is not None],)
+
+
+
+class SilverBigListAppend:
+    @classmethod
+    def INPUT_TYPES(s):
+        input_dict = {"optional": {}}
+        for i in range(30):
+            input_dict["optional"][f"any{i}"] = (any, )
+        return input_dict
+    
+    RETURN_TYPES = ("LIST",)
+    RETURN_NAMES = ("list",)
+
+    FUNCTION = "main"
+    
+    CATEGORY = "silver"
+    DESCRIPTION = "Creates a list with elements of any type in the given order. Ignores None type inputs."
+    
+    def main(self, **kwargs):
+        return ([kwargs[f"any{i}"] for i in range(30) if f"any{i}" in kwargs and kwargs[f"any{i}"] is not None],)
 
 
 
@@ -693,7 +725,7 @@ class SilverListMerge:
     FUNCTION = "main"
     
     CATEGORY = "silver"
-    DESCRIPTION = "Creates a new list with the merged contents of all given lists while preserving input and list element order."
+    DESCRIPTION = "Creates a new list with the merged contents of all given lists while preserving input and list element order. Ignores None type lists and elements."
 
     def main(self, list1=None, list2=None, list3=None, list4=None, list5=None, list6=None, list7=None, list8=None):
         
@@ -701,24 +733,86 @@ class SilverListMerge:
         for l in [list1, list2, list3, list4, list5, list6, list7, list8]:
             if l is not None and len(l) > 0:
                 for e in l:
-                    ml.append(e)
+                    if e is not None:
+                        ml.append(e)
         
         return (ml,)
 
 
 
-NODE_CLASS_MAPPINGS = {
-    "SILVER.SilverAnyBridge": SilverAnyBridge, 
-    "SILVER.SilverRunPythonCode": SilverRunPythonCode, 
-    "SILVER.SilverListSelectExtractByIndex": SilverListSelectExtractByIndex, 
-    "SILVER.SilverListAppend": SilverListAppend, 
-    "SILVER.SilverListMerge": SilverListMerge, 
-}
+class SilverListSplitter:
+    def __init__(self):
+        pass
 
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "optional": {
+                "list_input": ("LIST", ),
+            }
+        }
+
+    RETURN_TYPES = tuple([any for _ in range(8)])
+    RETURN_NAMES = tuple([f"list_input[{i}]" for i in range(8)])
+    FUNCTION = "split_list"
+    CATEGORY = "silver"
+
+    def split_list(self, list_input=[]):
+        outputs = [None] * 8
+        
+        for i in range(8):
+            if i < len(list_input):
+                outputs[i] = list_input[i]
+
+        return tuple(outputs)
+
+
+
+class SilverBigListSplitter:
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "optional": {
+                "list_input": ("LIST", ),
+            }
+        }
+
+    RETURN_TYPES = tuple([any for _ in range(30)])
+    RETURN_NAMES = tuple([f"list_input[{i}]" for i in range(30)])
+    FUNCTION = "split_list"
+    CATEGORY = "silver"
+
+    def split_list(self, list_input=[]):
+        outputs = [None] * 30
+        
+        for i in range(30):
+            if i < len(list_input):
+                outputs[i] = list_input[i]
+
+        return tuple(outputs)
+
+
+
+NODE_CLASS_MAPPINGS = {
+    "SILVER.SilverRunPythonCode": SilverRunPythonCode,
+    "SILVER.SilverAnyBridge": SilverAnyBridge,
+    "SILVER.SilverListSelectExtractByIndex": SilverListSelectExtractByIndex,
+    "SILVER.SilverListAppend": SilverListAppend,
+    "SILVER.SilverBigListAppend": SilverBigListAppend,
+    "SILVER.SilverListMerge": SilverListMerge,
+    "SILVER.SilverListSplitter": SilverListSplitter,
+    "SILVER.SilverBigListSplitter": SilverBigListSplitter,
+}
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "SILVER.SilverAnyBridge": "[Silver] Any Bridge", 
-    "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code", 
-    "SILVER.SilverListSelectExtractByIndex": "[Silver] List Select/Extract By Index", 
-    "SILVER.SilverListAppend": "[Silver] List Append", 
-    "SILVER.SilverListMerge": "[Silver] List Merge", 
+    "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",
+    "SILVER.SilverAnyBridge": "[Silver] Any Bridge",
+    "SILVER.SilverListSelectExtractByIndex": "[Silver] List Select/Extract By Index",
+    "SILVER.SilverListAppend": "[Silver] List Append",
+    "SILVER.SilverBigListAppend": "[Silver] List Append BIG",
+    "SILVER.SilverListMerge": "[Silver] List Merge",
+    "SILVER.SilverListSplitter": "[Silver] List Splitter",
+    "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
