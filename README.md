@@ -6,7 +6,7 @@ If so then this node is for you.
 
 **ATTENTION: (Speaking the obvious)**
 
-Allowing a node run arbitrary Python code poses a light security risk whenever you download a workflow from the internet and run it without being sure it does not contain this node.
+Allowing a node to run arbitrary Python code poses a light security risk whenever you download a workflow from the internet and run it without being sure it does not contain this node.
 
 ***To solve this security flaw you need to manually edit the nodes classnames in 'nodes.py' and change (at the bottom of the script) 'NODE_CLASS_MAPPINGS' and 'NODE_DISPLAY_NAME_MAPPINGS' to reflect your edits.***
 
