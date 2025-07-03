@@ -9,6 +9,8 @@ Features:
 - Supports package imports from standard python modules as well as any package installed in your venv.
 - Allows sharing variables/functions/classes written within a node with other linked nodes.
 - Allows sharing variables/functions/classes globally with non-linked nodes from the same or even other workflows.
+- Support any number of inputs of any type. But they must be appended into a list.
+- Comes bundled with 3 helper nodes: List Append, List Merge and Any Bridge.
 
 ![1](https://github.com/user-attachments/assets/3b9b819c-fdd4-44bb-b800-06ac20725bb2)
 
