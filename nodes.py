@@ -7,81 +7,155 @@ import json
 
 
 CLASS_WARNING_STRING = """
-# >>>>>> WARNING <<<<<<
-# 
-# You have not changed the class name of 'SilverRunPythonCode'.
-# This means bad actors can make you run malicious code by infiltrating this node into a workflow that you might download and run without checking if it contains this node with malicious code in it.
-# 
-# To solve this security flaw you need to do the following:
-# 
-# - Create a ~10 length random string with (a-Z,0-9) characters (ex: f8Rca4Cx)
-# - Add the random string as suffix to the class name in the following lines in  \custom_nodes\ComfyUI-RunPythonCode\ nodes.py:
-#     - class SilverRunPythonCode:   (line 385)
-#     - "SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 800)
-#     - "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 810)
-#     Ex:
-#     - class SilverRunPythonCodef8Rca4Cx:
-#     - "SILVER.SilverRunPythonCodef8Rca4Cx": SilverRunPythonCodef8Rca4Cx,
-#     - "SILVER.SilverRunPythonCodef8Rca4Cx": "[Silver] Run/Execute Python Code",
-# 
-# With this, the security of this node is no longer a concern when downloading and running shared workflows - unless the bad actor somehow guesses your suffix correctly.
-# Avoid ever sharing an output with metadata/workflow with someone else if it contains your run python node in it because that will reveal its class name.\n\n\n
+>>>>>> WARNING <<<<<<
+
+You have not changed the class name of 'SilverRunPythonCode'.
+This means bad actors can make you run malicious code by infiltrating this node into a workflow that you might download and run without checking if it contains this node with malicious code in it.
+
+To solve this security flaw you need to do the following:
+
+- Create a ~10 length random string with (a-Z,0-9) characters (ex: f8Rca4Cx)
+- Add the random string as suffix to the class name in the following lines in  \custom_nodes\ComfyUI-RunPythonCode\ nodes.py:
+    - class SilverRunPythonCode:   (line 455)
+    - "SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 860)
+    - "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 870)
+    Ex:
+    - class SilverRunPythonCodef8Rca4Cx:
+    - "SILVER.SilverRunPythonCodef8Rca4Cx": SilverRunPythonCodef8Rca4Cx,
+    - "SILVER.SilverRunPythonCodef8Rca4Cx": "[Silver] Run/Execute Python Code",
+
+With this, the security of this node is no longer a concern when downloading and running shared workflows - unless the bad actor somehow guesses your suffix correctly.
+Avoid ever sharing an output with metadata/workflow with someone else if it contains your run python node in it because that will reveal its class name.
+
+-------------------------------------\n\n\n
 """
 
+SHARING_DATA_INFO_STRING = """
+---------- Sharing Data in "Run Python Code" Nodes ----------
+Your "Run Python Code" node offers two ways to share Python variables, functions, and objects: shared_globals and shared_locals.
+
+shared_globals (Universal Access)
+
+    What it is: A global container for anything you want any "Run Python Code" node in your ComfyUI session to access, regardless of connections or workflow.
+    
+    How it works: At the start of your code, shared_globals is an empty dictionary. Its purpose is to assign data into it that will then become globally available.
+    
+    To assign a global item:
+    
+        def my_utility_function():
+            return "Hello from global!"
+        
+        shared_globals['my_func'] = my_utility_function
+        shared_globals['version'] = 1.0
+    
+    To access a global item in another "Run Python Code" node: Once assigned in one node, you MUST directly use the item by its name in any other node:
+    
+        # In a different node, after the first one has run:
+        print(my_func()) # Outputs: Hello from global!
+        print(version)   # Outputs: 1.0
+    
+    To remove a global item use the 'remove_global_item(key: str) -> bool' function:
+    
+        success = remove_global_item("item_name") # item will still be available in the scope of the node until the end of its execution
+    
+    Key Point: If you update a global item, the change is reflected everywhere in subsequent executions.
+
+
+shared_locals (Connected Node Access)
+
+    What it is: A container specifically for passing data between directly connected "Run Python Code" nodes.
+    
+    How it works: If a previous "Run Python Code" node is connected to this node's shared_locals input, this dictionary will contain any items that node decided to share. If no node is connected, shared_locals will be empty.
+    
+    To assign a local item for the next connected node:
+    
+        def process_data(data):
+            return data + "_processed"
+    
+        shared_locals['processor'] = process_data
+        shared_locals['intermediate_result'] = "some_data"
+    
+    To access a local item from the previous connected node:
+    
+        # In the next connected node:
+        result = processor("my_input") # Uses 'processor' from the previous node
+        print(intermediate_result)     # Uses 'intermediate_result' from the previous node
+    
+    Key Point: shared_locals only travels along the specific connection between nodes. It doesn't affect other parts of your workflow or persist globally.
+"""
 
 # --- Global Registries ---
 _EXEC_GLOBALS = {}
-_PUBLIC_FUNCTIONS_REGISTRY = {}
-_PUBLIC_FUNCTION_DISPLAY_STRINGS = []
-_PUBLIC_OBJECTS_REGISTRY = {}
-_PUBLIC_OBJECT_DISPLAY_STRINGS = []
+_GLOBAL_FUNCTIONS_REGISTRY = {}
+_GLOBAL_FUNCTION_DISPLAY_STRINGS = []
+_GLOBAL_OBJECTS_REGISTRY = {}
+_GLOBAL_OBJECT_DISPLAY_STRINGS = []
 TOP_MODULE_IMPORTS = {}
 TOP_MODULE_IMPORT_STRING = ""
 EXTRA_MODULE_IMPORT_STRING = ""
 SHARED_GLOBALS = {}
 
 
-def public_func(func):
+def global_func(func):
     """
-    A decorator to mark functions as 'public_func' and register them.
-    Functions decorated with @public_func will automatically be added to
-    _PUBLIC_FUNCTIONS_REGISTRY.
+    A decorator to mark functions as 'global_func' and register them.
+    Functions decorated with @global_func will automatically be added to
+    _GLOBAL_FUNCTIONS_REGISTRY.
     """
     if not callable(func):
-        raise TypeError(f"Decorator 'public_func' can only be applied to functions, got {type(func)}")
+        raise TypeError(f"Decorator 'global_func' can only be applied to functions, got {type(func)}")
     
-    _PUBLIC_FUNCTIONS_REGISTRY[func.__name__] = func
+    _GLOBAL_FUNCTIONS_REGISTRY[func.__name__] = func
     
     # Use inspect.signature to get the function's signature
     signature = inspect.signature(func)
     
     # Format it as a string: "function_name(param1: type, ...) -> return_type"
     # We include the function name here for clarity in the display string
-    _PUBLIC_FUNCTION_DISPLAY_STRINGS.append(f"# {func.__name__}{signature}\n")
+    _GLOBAL_FUNCTION_DISPLAY_STRINGS.append(f"{func.__name__}{signature}\n")
     
     return func
 
-def public_obj(name, obj):
+def global_obj(name, obj):
     """
-    Registers a top-level object as 'public_obj'.
+    Registers a top-level object as 'global_obj'.
     This function should be called immediately after the object's definition.
     """
     if not isinstance(name, str):
-        raise TypeError("The 'name' argument for public_object must be a string.")
+        raise TypeError("The 'name' argument for global_object must be a string.")
     
-    _PUBLIC_OBJECTS_REGISTRY[name] = obj
+    _GLOBAL_OBJECTS_REGISTRY[name] = obj
     
     # Get the type name (e.g., 'int', 'str', 'list')
     type_name = type(obj).__name__
     
-    _PUBLIC_OBJECT_DISPLAY_STRINGS.append(f"# {name} ({type_name})\n")
+    _GLOBAL_OBJECT_DISPLAY_STRINGS.append(f"{name} ({type_name})\n")
     return obj # Return the object so you can still assign it normally
 
 
-NODE_FILE = public_obj("NODE_FILE", os.path.abspath(__file__)) # leaving this just as an example on how to decorate variables from within the script
+@global_func
+def remove_global_item(key: str) -> bool:
+    """
+    Removes an entry from the global SHARED_GLOBALS dictionary.
+
+    Args:
+        key (str): The key of the item to be removed.
+    
+    Returns:
+        A bool that represents removal success 
+    """
+    global SHARED_GLOBALS
+    if key in SHARED_GLOBALS:
+        del SHARED_GLOBALS[key]
+        print(f"[SilverRunPythonCode] Successfully removed '{key}' from SHARED_GLOBALS.")
+        return True
+    print(f"[SilverRunPythonCode] Warning: Key '{key}' not found in SHARED_GLOBALS. Nothing removed.")
+    return False
 
 
-import os.path
+NODE_FILE = global_obj("NODE_FILE", os.path.abspath(__file__)) # leaving this just as an example on how to decorate variables from within the script
+
+
 import math
 import random
 import copy
@@ -97,11 +171,6 @@ import PIL
 from PIL import Image, ImageOps, ImageFont, ImageDraw
 
 import comfy
-import comfy.sd
-import comfy.model_management
-import comfy.utils
-import comfy.comfy_types
-from comfy.comfy_types import IO, ComfyNodeABC, InputTypeDict, FileLocator
 import folder_paths
 
 
@@ -142,7 +211,7 @@ for actual_module_name, desired_alias in _packages_to_check:
         module = importlib.import_module(actual_module_name)
         # Assign the imported module to the desired alias in the global namespace
         globals()[desired_alias] = module
-        _import_status_lines.append("# import " + actual_module_name + ("" if actual_module_name == desired_alias else " as " + desired_alias) + "\n")
+        _import_status_lines.append("import " + actual_module_name + ("" if actual_module_name == desired_alias else " as " + desired_alias) + "\n")
     except:
         pass
 EXTRA_MODULE_IMPORT_STRING = "".join(_import_status_lines)
@@ -310,7 +379,8 @@ with open(NODE_FILE, 'r', encoding='utf-8') as f:
     script_lines = f.readlines()
 
 TOP_MODULE_IMPORTS = get_top_level_imports(script_lines)
-TOP_MODULE_IMPORT_STRING = "\n".join([f"# {key}" for key in TOP_MODULE_IMPORTS])
+TOP_MODULE_IMPORT_STRING = "\n".join([f"{key}" for key in TOP_MODULE_IMPORTS])
+
 
 
 class AnyType(str):
@@ -393,22 +463,24 @@ class SilverRunPythonCode:
 
     @classmethod
     def INPUT_TYPES(s):
-        PUBLIC_FUNCTION_DISPLAY_STRING = "\n\n# These are the natively supported functions:\n\n" + "".join(_PUBLIC_FUNCTION_DISPLAY_STRINGS) if len(_PUBLIC_FUNCTION_DISPLAY_STRINGS) > 0 else ""
-        PUBLIC_OBJECT_DISPLAY_STRING = "\n\n# These are the natively supported objects (you can only access their initial value):\n\n" + "".join(_PUBLIC_OBJECT_DISPLAY_STRINGS) if len(_PUBLIC_OBJECT_DISPLAY_STRINGS) > 0 else ""
+        PUBLIC_FUNCTION_DISPLAY_STRING = "\n\nThese are the natively supported functions:\n\n" + "".join(_GLOBAL_FUNCTION_DISPLAY_STRINGS) if len(_GLOBAL_FUNCTION_DISPLAY_STRINGS) > 0 else ""
+        PUBLIC_OBJECT_DISPLAY_STRING = "\n\nThese are the natively supported objects (you can only access their initial value):\n\n" + "".join(_GLOBAL_OBJECT_DISPLAY_STRINGS) if len(_GLOBAL_OBJECT_DISPLAY_STRINGS) > 0 else ""
         CLASS_WARNING_STR = CLASS_WARNING_STRING if s.__name__ == "SilverRunPythonCode" else ""
         return {
             "optional": {
-                "list_input": ("LIST", {"default": []}),
-                "shared_locals": ("DICT", {"default": {}}), # Made optional to allow node to be used standalone
+                "list_input": ("LIST", {"default": None}),
+                "shared_locals": ("DICT", {"default": None}), # Made optional to allow node to be used standalone
                 "python_code": (
                     "STRING",
                     {
                         "multiline": True,
                         "default": (
+                            '"""' +
+                        
                             CLASS_WARNING_STR +
                         
-                            "# TIP: copy all of this into a big note node and leave it next to this one for reference.\n" +
-                            "# These are the natively added imports by this node:\n\n" +
+                            "\nTIP: copy all of this into a big note node and leave it next to this one for reference.\n" +
+                            "These are the natively added imports by this node:\n\n" +
                             
                             TOP_MODULE_IMPORT_STRING + "\n" +
                             
@@ -419,27 +491,20 @@ class SilverRunPythonCode:
                             PUBLIC_OBJECT_DISPLAY_STRING +
                             
                             
-                            "\n\n# ---------- INSTRUCTIONS: ----------\n\n" +
+                            "\n\n---------- INSTRUCTIONS: ----------\n\n"
                             
-                            "# The 'list_input' variable is available here.\n" +
-                            "# Modify 'list_input' in place, e.g.:\n" +
-                            "# list_input[0] = 'new_first_item'\n\n" +
-                            "# You can import standard and venv Python modules:\n\n" +
-                            "# import math\n" +
-                            "# import numpy as np\n" + 
-                            "# from PIL import ImageColor\n\n\n"
-                            "# You can define local variables/functions/classes within a node and give linked nodes exclusive access to it via 'shared_locals'.\n" +
-                            "# To do so you have to assign them in the node's code like so:\n\n" +
-                            "# def awesome_function():\n#   return 'something'\n" +
-                            "# shared_locals['awesome_function'] = awesome_function\n\n" +
-                            "# Then you can access those through linked nodes using their names directly:\n\n" +
-                            "# s = awesome_function()\n\n"
-                            "# You can also define them globaly which will give other nodes access to them even if they are not linked or in a different workflow:\n"
-                            "# shared_globals['awesome_function'] = awesome_function\n\n\n" +
-                            "# Be mindeful of the node execution order in your workflow when using shared_globals.\n" +
-                            "# And remember to re-assign variables/functions/classes if you make changes to them and you want those changes to be reflected in other nodes.\n\n"
+                            "The 'list_input' variable is available here.\n"
+                            "Modify 'list_input' in place, e.g.:\n\n"
+                            "list_input[0] = 'new_first_item' # do NOT use return at top-level in your code!\n\n"
+                            "You can import standard and venv Python packages:\n\n"
+                            "import math\n"
+                            "import numpy as np\n" 
+                            "from PIL import ImageColor\n" +
                             
-                            "# ---------- BEGIN YOUR CODE ----------\n\n"
+                            
+                            SHARING_DATA_INFO_STRING +
+                            
+                            '"""\n# ---------- BEGIN YOUR CODE ----------\n\n\n'
                         ),
                     },
                 ),
@@ -448,6 +513,8 @@ class SilverRunPythonCode:
 
     RETURN_TYPES = ("LIST", "DICT",)
     RETURN_NAMES = ("list_input", "shared_locals",)
+    
+    OUTPUT_NODE = True
 
     FUNCTION = "execute"
 
@@ -456,7 +523,7 @@ class SilverRunPythonCode:
     
     DESCRIPTION = CLASS_WARNING_STRING if __name__ == "SilverRunPythonCode" else "Use [Silver] List Append to import inputs and [Silver] List Splitter or [Silver] List Select/Extract By Index to extract outputs from 'list_input'."
 
-    def execute(self, python_code, list_input=[], shared_locals={}):
+    def execute(self, python_code, list_input=None, shared_locals=None):
         """
         Executes the user-provided Python code and handles shared items.
 
@@ -494,19 +561,7 @@ class SilverRunPythonCode:
         except Exception as e:
             print(f"[SilverRunPythonCode] Error during deep copy: {e}. Returning original input.")
             return (list_input, shared_locals)
-
-
-        # Define the execution environment for the user's code.
-        # 'exec_locals' is where variables accessible to the user's script are defined.
-        # The user's code will operate on 'list_input' within this scope.
-        exec_locals = {
-            "list_input": current_list_data,
-            "shared_locals": {}, # User will populate this to export items
-            "shared_local": {}, # Handle user typo
-            "shared_globals": {}, # User will populate this to export items
-            "shared_global": {}, # Handle user typo
-            "__builtins__": __builtins__ # Provide access to standard built-in functions like print()
-        }
+        
         
         # 'exec_globals' ensures that commonly used modules like torch, numpy, and PIL
         # are available in the global scope of the executed code.
@@ -524,11 +579,11 @@ class SilverRunPythonCode:
                 if globals().get(desired_alias):
                     _EXEC_GLOBALS[desired_alias] = globals().get(desired_alias)
             
-            for function_name in _PUBLIC_FUNCTIONS_REGISTRY:
-                _EXEC_GLOBALS[function_name] = _PUBLIC_FUNCTIONS_REGISTRY[function_name]
+            for function_name in _GLOBAL_FUNCTIONS_REGISTRY:
+                _EXEC_GLOBALS[function_name] = _GLOBAL_FUNCTIONS_REGISTRY[function_name]
             
-            for object_name in _PUBLIC_OBJECTS_REGISTRY:
-                _EXEC_GLOBALS[object_name] = _PUBLIC_OBJECTS_REGISTRY[object_name]
+            for object_name in _GLOBAL_OBJECTS_REGISTRY:
+                _EXEC_GLOBALS[object_name] = _GLOBAL_OBJECTS_REGISTRY[object_name]
         
         
         # attempt imports from imports in the node
@@ -544,19 +599,23 @@ class SilverRunPythonCode:
             except Exception as e:
                 print(f"[SilverRunPythonCode] Execution Error: {e}\n{traceback.format_exc()}")
         
-        
-        exec_globals.update(_EXEC_GLOBALS)
-        
         global SHARED_GLOBALS
-        for key in SHARED_GLOBALS:
-            exec_globals[key] = SHARED_GLOBALS[key]
+        SHARED_GLOBALS.update(_EXEC_GLOBALS)
+        exec_globals.update(SHARED_GLOBALS)
+        # Add shared items from the input (shared_locals) directly to exec_globals. This makes them callable/accessible at the global scope within the user's code.
+        exec_globals.update(shared_locals)
         
-        # Add shared items from the input (shared_locals) directly to exec_globals.
-        # This makes them callable/accessible at the global scope within the user's code.
-        if isinstance(shared_locals, dict):
-            for key, value in shared_locals.items():
-                exec_globals[key] = value
-        
+        # Define the execution environment for the user's code.
+        # 'exec_locals' is where variables accessible to the user's script are defined.
+        # The user's code will operate on 'list_input' within this scope.
+        exec_locals = {
+            "list_input": current_list_data,
+            "shared_locals": shared_locals,
+            "shared_local": shared_locals, # Handle user typo
+            "shared_globals": {},
+            "shared_global": {}, # Handle user typo
+            "__builtins__": __builtins__ # Provide access to standard built-in functions like print()
+        }
         
         try:
             # Execute the user-provided Python code.
@@ -568,14 +627,14 @@ class SilverRunPythonCode:
             # exec_locals["list_input"] will reflect that new assignment.
             modified_list_output = exec_locals["list_input"]
             
-            shared_locals_output = exec_locals.get("shared_locals", {})
-            shared_locals_output.update(exec_locals.get("shared_local", {}))
+            shared_locals.update(exec_locals.get("shared_locals", {}))
+            shared_locals.update(exec_locals.get("shared_local", {}))
             
             SHARED_GLOBALS.update(exec_locals.get("shared_globals", {}))
             SHARED_GLOBALS.update(exec_locals.get("shared_global", {}))
             
             # Return the modified list as a tuple (ComfyUI expects a tuple for outputs).
-            return (modified_list_output, shared_locals_output,)
+            return (modified_list_output, shared_locals,)
 
         except Exception as e:
             # Catch any exceptions that occur during code execution.
@@ -793,6 +852,7 @@ class SilverBigListSplitter:
                 outputs[i] = list_input[i]
 
         return tuple(outputs)
+
 
 
 
