@@ -391,21 +391,21 @@ any = AnyType("*")
 
 
 # Tensor to PIL
-@public_func
+@global_func
 def tensor2pil(image):
     return Image.fromarray(np.clip(255. * image.cpu().numpy().squeeze(), 0, 255).astype(np.uint8))
 
 # PIL to Tensor
-@public_func
+@global_func
 def pil2tensor(image):
     return torch.from_numpy(np.array(image).astype(np.float32) / 255.0).unsqueeze(0)
 
 # Numpy to PIL
-@public_func
+@global_func
 def numpy2pil(image):
     return Image.fromarray(np.clip(255. * image.squeeze(), 0, 255).astype(np.uint8))
 
-@public_func
+@global_func
 def loadPil(path):
     return Image.open(path)
 
@@ -463,8 +463,8 @@ class SilverRunPythonCode:
 
     @classmethod
     def INPUT_TYPES(s):
-        PUBLIC_FUNCTION_DISPLAY_STRING = "\n\nThese are the natively supported functions:\n\n" + "".join(_GLOBAL_FUNCTION_DISPLAY_STRINGS) if len(_GLOBAL_FUNCTION_DISPLAY_STRINGS) > 0 else ""
-        PUBLIC_OBJECT_DISPLAY_STRING = "\n\nThese are the natively supported objects (you can only access their initial value):\n\n" + "".join(_GLOBAL_OBJECT_DISPLAY_STRINGS) if len(_GLOBAL_OBJECT_DISPLAY_STRINGS) > 0 else ""
+        GLOBAL_FUNCTION_DISPLAY_STRING = "\n\nThese are the natively supported functions:\n\n" + "".join(_GLOBAL_FUNCTION_DISPLAY_STRINGS) if len(_GLOBAL_FUNCTION_DISPLAY_STRINGS) > 0 else ""
+        GLOBAL_OBJECT_DISPLAY_STRING = "\n\nThese are the natively supported objects (you can only access their initial value):\n\n" + "".join(_GLOBAL_OBJECT_DISPLAY_STRINGS) if len(_GLOBAL_OBJECT_DISPLAY_STRINGS) > 0 else ""
         CLASS_WARNING_STR = CLASS_WARNING_STRING if s.__name__ == "SilverRunPythonCode" else ""
         return {
             "optional": {
@@ -486,9 +486,9 @@ class SilverRunPythonCode:
                             
                             EXTRA_MODULE_IMPORT_STRING +
                             
-                            PUBLIC_FUNCTION_DISPLAY_STRING +
+                            GLOBAL_FUNCTION_DISPLAY_STRING +
                             
-                            PUBLIC_OBJECT_DISPLAY_STRING +
+                            GLOBAL_OBJECT_DISPLAY_STRING +
                             
                             
                             "\n\n---------- INSTRUCTIONS: ----------\n\n"
