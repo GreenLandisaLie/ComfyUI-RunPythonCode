@@ -16,9 +16,9 @@ git clone https://github.com/GreenLandisaLie/ComfyUI-RunPythonCode.git
 
 3. (With a text editor of your choice) MANUALLY add the random string as suffix to the class name in the following lines in ComfyUI/custom_nodes/ComfyUI-RunPythonCode/nodes.py
 ```
-class SilverRunPythonCode:   (line 385)
-"SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 800)
-"SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 810)
+class SilverRunPythonCode:   (line 455)
+"SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 860)
+"SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 870)
 ```
    They should look something like this:
 ```
