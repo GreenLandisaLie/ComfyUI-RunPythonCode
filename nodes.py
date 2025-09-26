@@ -470,6 +470,7 @@ class SilverRunPythonCode:
             "optional": {
                 "list_input": ("LIST", {"default": None}),
                 "shared_locals": ("DICT", {"default": None}), # Made optional to allow node to be used standalone
+                "deepcopy": ("BOOLEAN", { "default": True }),
                 "python_code": (
                     "STRING",
                     {
@@ -523,7 +524,7 @@ class SilverRunPythonCode:
     
     DESCRIPTION = CLASS_WARNING_STRING if __name__ == "SilverRunPythonCode" else "Use [Silver] List Append to import inputs and [Silver] List Splitter or [Silver] List Select/Extract By Index to extract outputs from 'list_input'."
 
-    def execute(self, python_code, list_input=None, shared_locals=None):
+    def execute(self, python_code, deepcopy=True, list_input=None, shared_locals=None):
         """
         Executes the user-provided Python code and handles shared items.
 
@@ -544,23 +545,24 @@ class SilverRunPythonCode:
             print(CLASS_WARNING_STRING + "\n[SilverRunPythonCode] 'python_code' execution will be skipped! Returning original inputs...")
             return (list_input, shared_locals)
             
-        # Create a deep copy of the input list.
-        # This is crucial for two reasons:
-        # 1. Prevents accidental modification of the original object connected from another node,
-        #    which could lead to unexpected side effects in the workflow.
-        # 2. Ensures that if the user's code fails, the original list remains untouched,
-        #    allowing the node to return a stable (unmodified) output.
-        try:
-            # Attempt to deep copy. If list_input is not copyable (e.g., a simple int or a dict with unhashable keys),
-            # copy.deepcopy will return it directly or raise an error.
-            # In general, this is a robust way to handle various types.
-            current_list_data = copy.deepcopy(list_input)
-        except TypeError as e:
-            print(f"[SilverRunPythonCode] Warning: Could not deep copy input type {type(list_input)}. Proceeding with direct reference. Error: {e}")
-            current_list_data = list_input
-        except Exception as e:
-            print(f"[SilverRunPythonCode] Error during deep copy: {e}. Returning original input.")
-            return (list_input, shared_locals)
+        if deepcopy:
+            # Create a deep copy of the input list.
+            # This is crucial for two reasons:
+            # 1. Prevents accidental modification of the original object connected from another node,
+            #    which could lead to unexpected side effects in the workflow.
+            # 2. Ensures that if the user's code fails, the original list remains untouched,
+            #    allowing the node to return a stable (unmodified) output.
+            try:
+                # Attempt to deep copy. If list_input is not copyable (e.g., a simple int or a dict with unhashable keys),
+                # copy.deepcopy will return it directly or raise an error.
+                # In general, this is a robust way to handle various types.
+                current_list_data = copy.deepcopy(list_input)
+            except TypeError as e:
+                print(f"[SilverRunPythonCode] Warning: Could not deep copy input type {type(list_input)}. Proceeding with direct reference. Error: {e}")
+                current_list_data = list_input
+            except Exception as e:
+                print(f"[SilverRunPythonCode] Error during deep copy: {e}. Returning original input.")
+                return (list_input, shared_locals)
         
         
         # 'exec_globals' ensures that commonly used modules like torch, numpy, and PIL
@@ -609,7 +611,7 @@ class SilverRunPythonCode:
         # 'exec_locals' is where variables accessible to the user's script are defined.
         # The user's code will operate on 'list_input' within this scope.
         exec_locals = {
-            "list_input": current_list_data,
+            "list_input": current_list_data if deepcopy else list_input,
             "shared_locals": shared_locals,
             "shared_local": shared_locals, # Handle user typo
             "shared_globals": {},
@@ -620,8 +622,12 @@ class SilverRunPythonCode:
         try:
             # Execute the user-provided Python code.
             # The code is expected to modify 'list_input' within the `exec_locals` scope in place.
-            exec(python_code, exec_globals, exec_locals)
-
+            #exec(python_code, exec_globals, exec_locals) # this no longer works after ComfyUI update!
+            for key in exec_globals:
+                if key != "list_input" and key != "shared_locals" and key != "shared_local" and key != "shared_globals" and key != "shared_global":
+                    exec_locals[key] = exec_globals[key]
+            exec(python_code, exec_locals)
+            
             # Retrieve the (potentially) modified list from the execution scope.
             # If the user's code re-assigned 'list_input' (e.g., list_input = [1,2,3]),
             # exec_locals["list_input"] will reflect that new assignment.
@@ -876,3 +882,4 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
