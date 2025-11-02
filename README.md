@@ -62,5 +62,5 @@ In that scenario, if the other party decides to copy your unique class name and 
 - Much more detailed instructions are included within the main node when you place it into a workflow.
 
 
-<img width="1844" height="981" alt="1" src="https://github.com/user-attachments/assets/c67a1d3f-4135-4bde-b35b-07e2d6622ce9" />
+<img width="1850" height="985" alt="1" src="https://github.com/user-attachments/assets/b70165e2-6c82-4a93-aa09-1ea3068fd2ed" />
 
