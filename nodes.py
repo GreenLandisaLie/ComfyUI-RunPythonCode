@@ -889,10 +889,15 @@ class SilverRunPythonCode:
         Returns:
             A tuple containing the modified list and the dictionary of shared items.
         """
-        if list_input is None or not isinstance(list_input, list):
+        if list_input is None:
             list_input = []
-        if shared_locals is None or not isinstance(shared_locals, dict):
+        if shared_locals is None:
             shared_locals = {}
+
+        if not isinstance(list_input, list):
+            raise ValueError("'list_input' is not a list!")
+        if not isinstance(shared_locals, dict):
+            raise ValueError("'shared_locals' is not a dict!")
             
         if self.__class__.__name__ == "SilverRunPythonCode" and not DEBUG_MODE:  # spam the user until they fix the security flaw of this node and prevent code execution
             print(CLASS_WARNING_STRING + "\n[SilverRunPythonCode] 'python_code' execution will be skipped! Returning original inputs...")
@@ -1236,4 +1241,5 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
 
