@@ -16,9 +16,9 @@ git clone https://github.com/GreenLandisaLie/ComfyUI-RunPythonCode.git
 
 3. (With a text editor of your choice) MANUALLY add the random string as suffix to the class name in the following lines in ComfyUI/custom_nodes/ComfyUI-RunPythonCode/nodes.py
 ```
-class SilverRunPythonCode:   (line 455)
-"SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 860)
-"SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 870)
+class SilverRunPythonCode:   (line 808)
+"SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 1220)
+"SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 1230)
 ```
    They should look something like this:
 ```
@@ -62,8 +62,5 @@ In that scenario, if the other party decides to copy your unique class name and 
 - Much more detailed instructions are included within the main node when you place it into a workflow.
 
 
-![1](https://github.com/user-attachments/assets/3b9b819c-fdd4-44bb-b800-06ac20725bb2)
+<img width="1844" height="981" alt="1" src="https://github.com/user-attachments/assets/c67a1d3f-4135-4bde-b35b-07e2d6622ce9" />
 
-
-
-Fun fact: Most of the code was written by Gemini.
