@@ -2,7 +2,7 @@
 
 Run arbitrary Python code to save you the hassle of connecting dozens of nodes for simple stuff.
 
-
+<img width="1851" height="984" alt="1" src="https://github.com/user-attachments/assets/0cd13b88-209c-4483-8af5-f346c8fe0961" />
 
 ## Installation
 
@@ -60,7 +60,3 @@ In that scenario, if the other party decides to copy your unique class name and 
 - Simply connect your inputs to a provided List Append node and send its output to 'list_input'.
 - To retrieve the outputs, connect the output ('list_input') to a List Splitter/Extract by Index node.
 - Much more detailed instructions are included within the main node when you place it into a workflow.
-
-
-<img width="1850" height="985" alt="1" src="https://github.com/user-attachments/assets/b70165e2-6c82-4a93-aa09-1ea3068fd2ed" />
-
