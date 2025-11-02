@@ -5,6 +5,7 @@ import importlib
 import re
 import json
 
+DEBUG_MODE = False
 
 CLASS_WARNING_STRING = """
 >>>>>> WARNING <<<<<<
@@ -16,9 +17,9 @@ To solve this security flaw you need to do the following:
 
 - Create a ~10 length random string with (a-Z,0-9) characters (ex: f8Rca4Cx)
 - Add the random string as suffix to the class name in the following lines in  \custom_nodes\ComfyUI-RunPythonCode\ nodes.py:
-    - class SilverRunPythonCode:   (line 455)
-    - "SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 860)
-    - "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 870)
+    - class SilverRunPythonCode:   (line 808)
+    - "SILVER.SilverRunPythonCode": SilverRunPythonCode,   (line 1220)
+    - "SILVER.SilverRunPythonCode": "[Silver] Run/Execute Python Code",   (line 1230)
     Ex:
     - class SilverRunPythonCodef8Rca4Cx:
     - "SILVER.SilverRunPythonCodef8Rca4Cx": SilverRunPythonCodef8Rca4Cx,
@@ -154,7 +155,6 @@ def remove_global_item(key: str) -> bool:
 
 
 NODE_FILE = global_obj("NODE_FILE", os.path.abspath(__file__)) # leaving this just as an example on how to decorate variables from within the script
-
 
 import math
 import random
@@ -410,6 +410,359 @@ def loadPil(path):
     return Image.open(path)
 
 
+@global_func
+def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_output: bool = True, remove_whitespaces: bool = True, remove_empty_tags: bool = True, wildcard_dir: str = "") -> str:
+    
+    # Updated _fix_prompt signature and logic
+    def _fix_prompt(
+        prompt: str, 
+        line_suffix: str, 
+        single_line_output: bool,
+        remove_whitespaces: bool,
+        remove_empty_tags: bool,
+    ) -> str:
+        """
+        Processes the prompt by:
+        1. Removing comments.
+        2. Applying line suffix and optionally trimming (based on remove_whitespaces).
+        3. Combining lines (based on single_line_output).
+        4. Applying default prompt cleaning (e.g., ",," -> ",").
+        5. Optionally removing empty tags (based on remove_empty_tags).
+    
+        Args:
+            prompt (str): The initial string.
+            line_suffix (str): String to append to each line.
+            single_line_output (bool): If True, joins lines with a space; otherwise, joins with a newline.
+            remove_whitespaces (bool): If True, strips lines and removes empty ones.
+            remove_empty_tags (bool): If True, removes redundant separators like ' , ,' or ' , .'
+    
+        Returns:
+            str: The modified string.
+        """
+        
+        # --- Start of Modified Preprocessing Code ---
+        cleaned_lines = []
+        lines = prompt.splitlines()
+    
+        for line in lines:
+            # Find the index of the first '#' character (comment delimiter)
+            comment_start_index = line.find('#')
+    
+            if comment_start_index != -1:
+                line_without_comment = line[:comment_start_index]
+            else:
+                line_without_comment = line
+    
+            # Apply trimming if remove_whitespaces is True
+            trimmed_line = line_without_comment.strip() if remove_whitespaces else line_without_comment
+            if remove_whitespaces:
+                while ("  " in trimmed_line):
+                    trimmed_line = trimmed_line.replace("  ", " ")
+    
+            # Apply the specified line_suffix
+            if trimmed_line:
+                # Only add suffix if the line is not empty after stripping
+                final_line = trimmed_line + line_suffix
+                
+                # Only add non-empty lines to the cleaned list
+                cleaned_lines.append(final_line)
+    
+        # Convert the cleaned lines back into a single/multi-line string
+        # Join with " " for single line output, or "\n" for multi-line output
+        joiner = " " if single_line_output else "\n"
+        prompt = joiner.join(cleaned_lines)
+        # --- End of Modified Preprocessing Code ---
+        
+        # Default cleaning replacements 
+        replacements = {}
+        replacements[" ,"] = ","
+        replacements[",  "] = ", "
+        replacements[" ."] = "."
+        replacements[".  "] = ". "
+        replacements[".,"] = "."
+        replacements[",."] = ","
+        replacements[",,"] = ","
+        replacements[".."] = "."
+        
+        empty_tag_replacements = [".,", ",.", ",,", ".."]
+        
+        # Sort replacements by key length in descending order
+        sorted_replacements = sorted(replacements.items(), key=lambda item: len(item[0]), reverse=True)
+    
+        # The replacement loop runs until no changes are made.
+        while True:
+            replacement_made_in_pass = False
+            current_prompt_state = prompt
+    
+            for old_substring, new_substring in sorted_replacements:
+            
+                if not remove_empty_tags and old_substring in empty_tag_replacements:
+                    continue
+            
+                temp_prompt = current_prompt_state
+    
+                pattern = re.compile(re.escape(old_substring), re.IGNORECASE)
+    
+                replacements_to_make_in_this_pass = []
+                for match in pattern.finditer(temp_prompt):
+                    start, end = match.span()
+    
+                    # Check if this match is inside any <...> tag
+                    tag_start_index = temp_prompt.rfind('<', 0, start)
+                    if tag_start_index != -1:
+                        tag_end_index = temp_prompt.find('>', tag_start_index)
+                        if tag_end_index != -1 and tag_end_index > start:
+                            continue
+    
+                    replacements_to_make_in_this_pass.append((start, end, new_substring))
+    
+    
+                # Apply replacements from right to left
+                for start, end, new_sub in sorted(replacements_to_make_in_this_pass, key=lambda x: x[0], reverse=True):
+                    current_prompt_state = current_prompt_state[:start] + new_sub + current_prompt_state[end:]
+                    replacement_made_in_pass = True
+    
+            if not replacement_made_in_pass:
+                break
+    
+            prompt = current_prompt_state
+        
+        # --- Logic for remove_empty_tags ---
+        if remove_empty_tags:
+            temp_prompt = prompt
+            
+            # Simple cleanup of spacing before running the final delimiter removal
+            temp_prompt = temp_prompt.replace(", ", ",").replace(" ,", ",").replace(" .", ".").replace(". ", ".")
+            temp_prompt = temp_prompt.replace(",", ", ")
+            temp_prompt = re.sub(r'\.(?!\d)', '. ', temp_prompt) # replaces '.' -> '. ' Only if there is no immediate digit after the dot
+            
+            # Use a loop to remove sequences of a delimiter, optional space, and another delimiter.
+            while True:
+                initial_len = len(temp_prompt)
+                # Replace pattern (separator, optional space, separator) with a single separator
+                # e.g., ', , ' -> ', '
+                temp_prompt = re.sub(r'([.,])\s*([.,])', r'\1 ', temp_prompt)
+                
+                if len(temp_prompt) == initial_len:
+                    break
+            
+            # Final cleaning of delimiters (e.g. 'cat,, dog' -> 'cat, dog')
+            temp_prompt = temp_prompt.replace(",,", ",").replace("..", ".")
+            prompt = temp_prompt
+            
+            
+        prompt = prompt.strip()
+        # The existing loop to remove leading/trailing delimiters/spaces
+        while prompt.startswith(",") or prompt.startswith(".") or prompt.startswith(" ") or prompt.endswith(",") or prompt.endswith(" "):
+            try:
+                if prompt.startswith(",") or prompt.startswith(".") or prompt.startswith(" "):
+                    prompt = prompt[1:].strip() # Strip again after removing
+                if prompt.endswith(",") or prompt.endswith(" "):
+                    prompt = prompt[:-1].strip() # Strip again after removing
+            except:
+                break
+        
+        return prompt
+    
+    
+    def _process_wildcards(prompt: str, wildcard_dir: str, seed: int) -> str:
+        """
+        Replaces substrings like '__something__' in the prompt with the content of
+        the corresponding '.txt' file.
+    
+        If the file contains multiple lines:
+        1. Empty lines and comment lines (#...) are ignored.
+        2. One line is randomly selected and returned.
+        
+        This ensures that only one item (which may contain further dynamic syntax) is
+        substituted, regardless of whether combination syntax is present in the file.
+        
+        Args:
+            prompt (str): The input string potentially containing wildcard substrings.
+            wildcard_dir (str): The directory to search for wildcard '.txt' files.
+            seed (int): An integer seed for the random number generator.
+    
+        Returns:
+            str: The prompt string with wildcards replaced by a single selected line.
+        """
+        if wildcard_dir is None or not os.path.isdir(wildcard_dir):
+            return prompt
+        
+        # Seed the random number generator for wildcard selection
+        random.seed(seed)
+    
+        # Regex to find '__something__' or '__something.txt__'
+        pattern = re.compile(r'__(.+?)__')
+        
+        def replace_match(match):
+            wildcard_name = match.group(1)
+            
+            if wildcard_name.lower().endswith('.txt'):
+                wildcard_name = wildcard_name[:-4]
+    
+            # Search for the file in a case-insensitive manner
+            for filename in os.listdir(wildcard_dir):
+                base_name, ext = os.path.splitext(filename)
+                if ext.lower() == '.txt' and base_name.lower() == wildcard_name.lower():
+                    filepath = os.path.join(wildcard_dir, filename)
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as f:
+                            file_content = f.read()
+                            
+                            # --- MODIFIED LOGIC START ---
+                            # 1. Split by newlines and filter out empty and comment lines
+                            # The lines list now contains only valid choices: 'A', '{C|D} # E'
+                            lines = []
+                            for line in file_content.splitlines():
+                                trimmed_line = line.strip()
+                                # Ignore empty lines or lines starting with a comment
+                                if trimmed_line and not trimmed_line.startswith('#'):
+                                    # Remove trailing comment for the final selected line
+                                    # This ensures '{C|D} # E' becomes '{C|D}' for processing
+                                    comment_start_index = trimmed_line.find('#')
+                                    if comment_start_index != -1:
+                                        lines.append(trimmed_line[:comment_start_index].strip())
+                                    else:
+                                        lines.append(trimmed_line)
+                                        
+                            if lines:
+                                # 2. Select ONE random line from the cleaned list
+                                selected_line = random.choice(lines)
+                                
+                                # 3. Return the selected line (which may contain combinations or wildcards)
+                                return selected_line
+                            else:
+                                return "" # Return empty string if file is empty or only comments
+                            # --- MODIFIED LOGIC END ---
+                            
+                    except Exception as e:
+                        print(f"Error reading file {filepath}: {e}")
+                        return match.group(0)
+            
+            # If no matching file is found, return the original substring
+            return match.group(0)
+    
+        return pattern.sub(replace_match, prompt)
+    
+    
+    def _process_combinations(prompt: str, seed: int) -> str:
+        """
+        Replaces substrings enclosed in '{...}' with a randomly selected choice
+        from their pipe-separated contents.
+        """
+        # Seed the random number generator
+        random.seed(seed)
+    
+        pattern = re.compile(r'{([^}{]*)}')
+    
+        while True:
+            match = pattern.search(prompt)
+            if not match:
+                break
+    
+            start, end = match.span()
+            choices_str = match.group(1)
+    
+            # --- Parse choices and weights ---
+            raw_choices_list = [c for c in choices_str.split('|')]
+            
+            weighted_choices = []
+            unweighted_choices = []
+            total_defined_weight = 0.0
+    
+            for item in raw_choices_list:
+                if '::' in item:
+                    try:
+                        weight_str, choice_text = item.split('::', 1)
+                        weight = float(weight_str)
+                        if not (0 <= weight <= 1):
+                            raise ValueError("Weight must be between 0 and 1.")
+                        
+                        weighted_choices.append((choice_text, weight))
+                        total_defined_weight += weight
+                    except ValueError:
+                        unweighted_choices.append(item)
+                else:
+                    unweighted_choices.append(item)
+            
+            if total_defined_weight > 1.0:
+                for i in range(len(weighted_choices)):
+                    choice, weight = weighted_choices[i]
+                    weighted_choices[i] = (choice, weight / total_defined_weight)
+                total_defined_weight = 1.0
+                
+            remaining_weight = 1.0 - total_defined_weight
+            
+            if unweighted_choices:
+                if remaining_weight < 0:
+                    remaining_weight = 0
+                    
+                equal_share_for_unweighted = remaining_weight / len(unweighted_choices)
+                for choice_text in unweighted_choices:
+                    weighted_choices.append((choice_text, equal_share_for_unweighted))
+    
+            # --- Perform selection ---
+            selected_choice = ""
+            if not weighted_choices:
+                selected_choice = ""
+            else:
+                choices_list = [item[0] for item in weighted_choices]
+                weights_list = [item[1] for item in weighted_choices]
+    
+                selected_choice = random.choices(choices_list, weights=weights_list, k=1)[0]
+            
+            # Replace the matched inner block with the selected choice
+            prompt = prompt[:start] + selected_choice + prompt[end:]
+    
+        return prompt
+    
+    
+    # --- Main function body: Fix applied here ---
+    
+    max_proccess_count = 30
+    while max_proccess_count > 0:
+        
+        has_wildcards = "__" in prompt
+        has_combinations = "{" in prompt or "}" in prompt
+        
+        if not has_wildcards and not has_combinations:
+            break # Exit the loop if no more dynamic content is found
+        
+        # Process wildcards recursively (NO _fix_prompt call here)
+        if has_wildcards:
+            max_subproccess_count = 10
+            while max_subproccess_count > 0:
+                if "__" in prompt:
+                    prompt = _process_wildcards(prompt, wildcard_dir, seed)
+                else:
+                    break
+                max_subproccess_count -= 1
+        
+        # Process combinations recursively (NO _fix_prompt call here)
+        if has_combinations:
+            max_subproccess_count = 30
+            while max_subproccess_count > 0:
+                if "{" in prompt or "}" in prompt:
+                    prompt = _process_combinations(prompt, seed)
+                else:
+                    break
+                max_subproccess_count -= 1
+        
+        max_proccess_count -= 1
+    
+    # 1. FINAL CLEANING: Run _fix_prompt ONCE on the fully resolved string
+    prompt = _fix_prompt(
+        prompt=prompt, 
+        line_suffix=line_suffix, 
+        single_line_output=single_line_output, 
+        remove_whitespaces=remove_whitespaces, 
+        remove_empty_tags=remove_empty_tags
+    )
+    
+    return prompt
+
+
+
 
 class SilverAnyBridge:
     @classmethod
@@ -465,7 +818,7 @@ class SilverRunPythonCode:
     def INPUT_TYPES(s):
         GLOBAL_FUNCTION_DISPLAY_STRING = "\n\nThese are the natively supported functions:\n\n" + "".join(_GLOBAL_FUNCTION_DISPLAY_STRINGS) if len(_GLOBAL_FUNCTION_DISPLAY_STRINGS) > 0 else ""
         GLOBAL_OBJECT_DISPLAY_STRING = "\n\nThese are the natively supported objects (you can only access their initial value):\n\n" + "".join(_GLOBAL_OBJECT_DISPLAY_STRINGS) if len(_GLOBAL_OBJECT_DISPLAY_STRINGS) > 0 else ""
-        CLASS_WARNING_STR = CLASS_WARNING_STRING if s.__name__ == "SilverRunPythonCode" else ""
+        CLASS_WARNING_STR = CLASS_WARNING_STRING if s.__name__ == "SilverRunPythonCode" and not DEBUG_MODE else ""
         return {
             "optional": {
                 "list_input": ("LIST", {"default": None}),
@@ -522,7 +875,7 @@ class SilverRunPythonCode:
     CATEGORY = "silver" # Categorize your node for better organization
     
     
-    DESCRIPTION = CLASS_WARNING_STRING if __name__ == "SilverRunPythonCode" else "Use [Silver] List Append to import inputs and [Silver] List Splitter or [Silver] List Select/Extract By Index to extract outputs from 'list_input'."
+    DESCRIPTION = CLASS_WARNING_STRING if __name__ == "SilverRunPythonCode" and not DEBUG_MODE else "Use [Silver] List Append to import inputs and [Silver] List Splitter or [Silver] List Select/Extract By Index to extract outputs from 'list_input'."
 
     def execute(self, python_code, deepcopy=True, list_input=None, shared_locals=None):
         """
@@ -536,12 +889,12 @@ class SilverRunPythonCode:
         Returns:
             A tuple containing the modified list and the dictionary of shared items.
         """
-        if list_input is None:
+        if list_input is None or not isinstance(list_input, list):
             list_input = []
-        if shared_locals is None:
+        if shared_locals is None or not isinstance(shared_locals, dict):
             shared_locals = {}
             
-        if self.__class__.__name__ == "SilverRunPythonCode":  # spam the user until they fix the security flaw of this node and prevent code execution
+        if self.__class__.__name__ == "SilverRunPythonCode" and not DEBUG_MODE:  # spam the user until they fix the security flaw of this node and prevent code execution
             print(CLASS_WARNING_STRING + "\n[SilverRunPythonCode] 'python_code' execution will be skipped! Returning original inputs...")
             return (list_input, shared_locals)
             
@@ -858,6 +1211,7 @@ class SilverBigListSplitter:
                 outputs[i] = list_input[i]
 
         return tuple(outputs)
+
 
 
 
