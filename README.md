@@ -2,7 +2,7 @@
 
 Run arbitrary Python code to save you the hassle of connecting dozens of nodes for simple stuff.
 
-<img width="1851" height="984" alt="1" src="https://github.com/user-attachments/assets/0cd13b88-209c-4483-8af5-f346c8fe0961" />
+<img width="1920" height="997" alt="1" src="https://github.com/user-attachments/assets/83d588e4-db51-4036-a799-7eee3049209c" />
 
 ## Installation
 
