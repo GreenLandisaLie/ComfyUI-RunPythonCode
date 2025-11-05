@@ -411,7 +411,7 @@ def loadPil(path):
 
 
 @global_func
-def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_output: bool = True, remove_whitespaces: bool = True, remove_empty_tags: bool = True, wildcard_dir: str = WILDCARD_DIR) -> str:
+def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_output: bool = True, remove_whitespaces: bool = True, remove_empty_tags: bool = True, wildcard_dir: str = "") -> str:
     
     # Updated _fix_prompt signature and logic
     def _fix_prompt(
@@ -1270,6 +1270,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
 
 
 
