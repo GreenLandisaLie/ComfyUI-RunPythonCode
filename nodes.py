@@ -411,7 +411,7 @@ def loadPil(path):
 
 
 @global_func
-def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_output: bool = True, remove_whitespaces: bool = True, remove_empty_tags: bool = True, wildcard_dir: str = "") -> str:
+def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_output: bool = True, remove_whitespaces: bool = True, remove_empty_tags: bool = True, wildcard_dir: str = WILDCARD_DIR) -> str:
     
     # Updated _fix_prompt signature and logic
     def _fix_prompt(
@@ -594,53 +594,82 @@ def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_o
         # Regex to find '__something__' or '__something.txt__'
         pattern = re.compile(r'__(.+?)__')
         
+        def case_insensitive_resolve(base_dir: str, path_parts: list[str]) -> str | None:
+            """
+            Resolves a nested path inside base_dir in a case-insensitive way.
+            Only lists contents one level at a time (no recursion).
+            Returns absolute path to the file if found, else None.
+            """
+            current_dir = base_dir
+    
+            for part in path_parts[:-1]:
+                try:
+                    entries = os.listdir(current_dir)
+                except OSError:
+                    return None
+    
+                match = next((e for e in entries if e.lower() == part.lower() and 
+                            os.path.isdir(os.path.join(current_dir, e))), None)
+                if not match:
+                    return None
+                current_dir = os.path.join(current_dir, match)
+    
+            # Last part should be a file (case-insensitive match for .txt)
+            target_file = path_parts[-1]
+            try:
+                entries = os.listdir(current_dir)
+            except OSError:
+                return None
+    
+            for e in entries:
+                base_name, ext = os.path.splitext(e)
+                if ext.lower() == '.txt' and base_name.lower() == target_file.lower():
+                    return os.path.join(current_dir, e)
+    
+            return None
+        
         def replace_match(match):
-            wildcard_name = match.group(1)
-            
+            wildcard_name = match.group(1).strip()
+    
             if wildcard_name.lower().endswith('.txt'):
                 wildcard_name = wildcard_name[:-4]
     
-            # Search for the file in a case-insensitive manner
-            for filename in os.listdir(wildcard_dir):
-                base_name, ext = os.path.splitext(filename)
-                if ext.lower() == '.txt' and base_name.lower() == wildcard_name.lower():
-                    filepath = os.path.join(wildcard_dir, filename)
-                    try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            file_content = f.read()
-                            
-                            # --- MODIFIED LOGIC START ---
-                            # 1. Split by newlines and filter out empty and comment lines
-                            # The lines list now contains only valid choices: 'A', '{C|D} # E'
-                            lines = []
-                            for line in file_content.splitlines():
-                                trimmed_line = line.strip()
-                                # Ignore empty lines or lines starting with a comment
-                                if trimmed_line and not trimmed_line.startswith('#'):
-                                    # Remove trailing comment for the final selected line
-                                    # This ensures '{C|D} # E' becomes '{C|D}' for processing
-                                    comment_start_index = trimmed_line.find('#')
-                                    if comment_start_index != -1:
-                                        lines.append(trimmed_line[:comment_start_index].strip())
-                                    else:
-                                        lines.append(trimmed_line)
-                                        
-                            if lines:
-                                # 2. Select ONE random line from the cleaned list
-                                selected_line = random.choice(lines)
-                                
-                                # 3. Return the selected line (which may contain combinations or wildcards)
-                                return selected_line
-                            else:
-                                return "" # Return empty string if file is empty or only comments
-                            # --- MODIFIED LOGIC END ---
-                            
-                    except Exception as e:
-                        print(f"Error reading file {filepath}: {e}")
-                        return match.group(0)
-            
-            # If no matching file is found, return the original substring
-            return match.group(0)
+            # Normalize separators and split into parts
+            normalized = re.sub(r'[\\/]+', '/', wildcard_name)
+            parts = [p for p in normalized.split('/') if p]
+    
+            if not parts:
+                return match.group(0)
+    
+            # Resolve path case-insensitively
+            filepath = case_insensitive_resolve(wildcard_dir, parts)
+            if not filepath or not os.path.isfile(filepath):
+                return match.group(0)
+    
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    file_content = f.read()
+    
+                # Filter lines (ignore empty and comment lines)
+                lines = []
+                for line in file_content.splitlines():
+                    trimmed = line.strip()
+                    if trimmed and not trimmed.startswith('#'):
+                        comment_idx = trimmed.find('#')
+                        if comment_idx != -1:
+                            trimmed = trimmed[:comment_idx].strip()
+                        if trimmed:
+                            lines.append(trimmed)
+    
+                if not lines:
+                    return ""
+    
+                # Choose one random valid line
+                return random.choice(lines)
+    
+            except Exception as e:
+                print(f"Error reading file {filepath}: {e}")
+                return match.group(0)
     
         return pattern.sub(replace_match, prompt)
     
@@ -1241,5 +1270,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
 
 
