@@ -82,7 +82,12 @@ app.registerExtension({
 				// Highlight keywords, special vars, numbers
 				codePart = codePart
 					.replace(
-						/\b(if|else|elif|def|class|while|for|in|or|is|not|import|del|return|->)\b/g,
+						/\b(if|else|elif|def|class|while|for|in|and|or|is|not|import|del|return|False|True|from|as|except|break|pass|continue|None|raise|->)\b/g,
+						(m) => protect(`<span style="color:#FFFF00;">${m}</span>`)
+					)
+					.replace(
+						// Keywords WITH a colon (don't need the final \b because the : is a non-word character)
+						/\b(try:|except:)/g, 
 						(m) => protect(`<span style="color:#FFFF00;">${m}</span>`)
 					)
 					.replace(
@@ -335,3 +340,4 @@ app.registerExtension({
     },
 
 });
+
