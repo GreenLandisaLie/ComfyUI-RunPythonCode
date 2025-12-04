@@ -1118,6 +1118,7 @@ class SilverListAppend:
                 "any5": (any, ),
                 "any6": (any, ),
                 "any7": (any, ),
+                "append_None_inputs": ("BOOLEAN", { "default": True }),
             },
         }
 
@@ -1127,10 +1128,10 @@ class SilverListAppend:
     FUNCTION = "main"
     
     CATEGORY = "silver"
-    DESCRIPTION = "Creates a list with elements of any type in the given order. Ignores None type inputs."
+    DESCRIPTION = "Creates a list with elements of any type in the given order."
 
-    def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None):
-        return ([e for e in [any0, any1, any2, any3, any4, any5, any6, any7] if e is not None],)
+    def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, append_None_inputs=True):
+        return ([e for e in [any0, any1, any2, any3, any4, any5, any6, any7] if append_None_inputs or (not append_None_inputs and e is not None)],)
 
 
 
@@ -1140,6 +1141,7 @@ class SilverBigListAppend:
         input_dict = {"optional": {}}
         for i in range(30):
             input_dict["optional"][f"any{i}"] = (any, )
+        input_dict["optional"]["append_None_inputs"] = ("BOOLEAN", { "default": True })
         return input_dict
     
     RETURN_TYPES = ("LIST",)
@@ -1148,10 +1150,22 @@ class SilverBigListAppend:
     FUNCTION = "main"
     
     CATEGORY = "silver"
-    DESCRIPTION = "Creates a list with elements of any type in the given order. Ignores None type inputs."
+    DESCRIPTION = "Creates a list with elements of any type in the given order."
     
     def main(self, **kwargs):
-        return ([kwargs[f"any{i}"] for i in range(30) if f"any{i}" in kwargs and kwargs[f"any{i}"] is not None],)
+        ordered_inputs = []
+        for i in range(30):
+            key = f"any{i}"
+            if key in kwargs:
+                ordered_inputs.append(kwargs[key])
+        
+        append_None_inputs = "append_None_inputs" in kwargs and kwargs["append_None_inputs"]
+        if append_None_inputs:
+            result_list = ordered_inputs
+        else:
+            result_list = [item for item in ordered_inputs if item is not None]
+            
+        return (result_list,)
 
 
 
@@ -1270,6 +1284,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
 
 
 
