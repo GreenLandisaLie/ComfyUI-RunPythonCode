@@ -1118,7 +1118,7 @@ class SilverListAppend:
                 "any5": (any, ),
                 "any6": (any, ),
                 "any7": (any, ),
-                "append_None_inputs": ("BOOLEAN", { "default": True }),
+                "append_None_inputs": ("BOOLEAN", { "default": False }),
             },
         }
 
@@ -1130,7 +1130,7 @@ class SilverListAppend:
     CATEGORY = "silver"
     DESCRIPTION = "Creates a list with elements of any type in the given order."
 
-    def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, append_None_inputs=True):
+    def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, append_None_inputs=False):
         return ([e for e in [any0, any1, any2, any3, any4, any5, any6, any7] if append_None_inputs or (not append_None_inputs and e is not None)],)
 
 
@@ -1141,7 +1141,7 @@ class SilverBigListAppend:
         input_dict = {"optional": {}}
         for i in range(30):
             input_dict["optional"][f"any{i}"] = (any, )
-        input_dict["optional"]["append_None_inputs"] = ("BOOLEAN", { "default": True })
+        input_dict["optional"]["append_None_inputs"] = ("BOOLEAN", { "default": False })
         return input_dict
     
     RETURN_TYPES = ("LIST",)
@@ -1284,6 +1284,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
 
 
 
