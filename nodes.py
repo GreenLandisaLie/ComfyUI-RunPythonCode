@@ -693,7 +693,20 @@ def dynamic_prompts(prompt: str, seed: int, line_suffix: str = "", single_line_o
             choices_str = match.group(1)
     
             # --- Parse choices and weights ---
-            raw_choices_list = [c for c in choices_str.split('|')]
+            processed_lines = []
+            for line in choices_str.splitlines(): # Remove comments and empty lines inside combinations ---
+                stripped = line.strip()
+                if not stripped or stripped.startswith('#'): # Ignore full-line comments completely
+                    continue
+                
+                comment_idx = stripped.find('#') # Remove inline comments
+                if comment_idx != -1:
+                    stripped = stripped[:comment_idx]
+            
+                processed_lines.append(stripped)
+            
+            recombined = "\n".join(processed_lines)
+            raw_choices_list = [c.strip() for c in recombined.split('|')]
             
             weighted_choices = []
             unweighted_choices = []
@@ -1284,6 +1297,7 @@ NODE_DISPLAY_NAME_MAPPINGS = {
     "SILVER.SilverListSplitter": "[Silver] List Splitter",
     "SILVER.SilverBigListSplitter": "[Silver] List Splitter BIG",
 }
+
 
 
 
