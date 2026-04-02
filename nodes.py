@@ -1141,7 +1141,10 @@ class SilverListAppend:
     FUNCTION = "main"
     
     CATEGORY = "silver"
-    DESCRIPTION = "Creates a list with elements of any type in the given order."
+    DESCRIPTION = """Creates a list with elements of any type in the given order.
+When append_None_inputs is False: output List will not include any None type inputs. This can create a mismatch in the element order of the output list (ex: if any0 is None but any1 is not then the first element will be any1).
+When append_None_inputs is True: output List will include None type inputs from both connected and disconnect input nodes. This means element order is always respected but the output List Length will always be 8 
+    """
 
     def main(self, any0=None, any1=None, any2=None, any3=None, any4=None, any5=None, any6=None, any7=None, append_None_inputs=False):
         return ([e for e in [any0, any1, any2, any3, any4, any5, any6, any7] if append_None_inputs or (not append_None_inputs and e is not None)],)
@@ -1163,21 +1166,20 @@ class SilverBigListAppend:
     FUNCTION = "main"
     
     CATEGORY = "silver"
-    DESCRIPTION = "Creates a list with elements of any type in the given order."
+    DESCRIPTION = """Creates a list with elements of any type in the given order.
+When append_None_inputs is False: output List will not include any None type inputs. This can create a mismatch in the element order of the output list (ex: if any0 is None but any1 is not then the first element will be any1).
+When append_None_inputs is True: output List will include None type inputs from both connected and disconnect input nodes. This means element order is always respected but the output List Length will always be 30
+    """
     
     def main(self, **kwargs):
-        ordered_inputs = []
-        for i in range(30):
-            key = f"any{i}"
-            if key in kwargs:
-                ordered_inputs.append(kwargs[key])
-        
         append_None_inputs = "append_None_inputs" in kwargs and kwargs["append_None_inputs"]
-        if append_None_inputs:
-            result_list = ordered_inputs
-        else:
-            result_list = [item for item in ordered_inputs if item is not None]
-            
+        result_list = []
+        for i in range(30):
+            key = f"any{i}" 
+            if append_None_inputs:
+                result_list.append(kwargs[key] if key in kwargs else None)
+            elif key in kwargs:
+                result_list.append(kwargs[key])
         return (result_list,)
 
 
