@@ -82,7 +82,7 @@ app.registerExtension({
 				// Highlight keywords, special vars, numbers
 				codePart = codePart
 					.replace(
-						/\b(if|else|elif|def|class|while|for|in|and|or|is|not|import|del|return|False|True|from|as|except|break|pass|continue|None|raise|->)\b/g,
+						/\b(if|else|elif|def|class|while|for|in|and|or|is|not|import|del|return|False|True|from|as|except|break|pass|continue|None|raise|assert|async|await|finally|global|lambda|nonlocal|with|yield|False|None|True|and|as|assert|async|await|break|class|continue|def|del|elif|else|except|finally|for|from|global|if|import|in|is|lambda|nonlocal|not|or|pass|raise|return|while|with|yield|->)\b/g,
 						(m) => protect(`<span style="color:#FFFF00;">${m}</span>`)
 					)
 					.replace(
@@ -96,8 +96,11 @@ app.registerExtension({
 					)
 					.replace(/\b\d+(\.\d+)?\b/g, (m) =>
 						protect(`<span style="color:#00FFFF;">${m}</span>`)
+					)
+					.replace(/(\.)([a-zA-Z_][a-zA-Z0-9_]*)/g, (m, dot, word) =>
+						`${dot}${protect(`<span style="color:#7A2A7A;">${word}</span>`)}`
 					);
-		
+				
 				// Now handle commentPart (if exists)
 				if (commentPart) {
 					let color = "#6A9955"; // normal
